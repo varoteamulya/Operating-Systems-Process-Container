@@ -70,7 +70,7 @@ int processor_container_create(struct processor_container_cmd __user *user_cmd)
 }
 
 /**
- * switch to the next task in the next container
+ * switch to the next task within the same container
  * 
  * external functions needed:
  * mutex_lock(), mutex_unlock(), wake_up_process(), set_current_state(), schedule()
