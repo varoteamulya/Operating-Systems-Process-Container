@@ -59,11 +59,13 @@ struct container_list
 
 extern struct list_head containerHead;
 
+//Method to check if the container is present
 bool isConatinerPresent(__u64 id)
 {
-printk("iscontainerpresent ");
+   printk("iscontainerpresent ");
    struct container_list *temp;
    struct list_head *pos;
+   //Traversing the list
    list_for_each(pos,&containerHead)
     {
       temp = list_entry(pos, struct container_list, list);
@@ -79,8 +81,10 @@ void createContainer(__u64 kcid)
 {
      printk("creating the container ");
      struct container_list *tmp;
+     //Creating a new container
      tmp = (struct container_list *)kmalloc(sizeof(struct container_list), GFP_KERNEL);
      tmp->cid = kcid;
+     //Adding the container to the list
      list_add(&(tmp->list),&(containerHead));
 }
 
@@ -108,11 +112,14 @@ int processor_container_create(struct processor_container_cmd __user *user_cmd)
     printk("Inside pcontainer create\n");
     struct processor_container_cmd kcmd;
     struct container_list node;
+    //Reading the inputs from the user space
     copy_from_user(&kcmd, (void __user*)user_cmd, sizeof(struct processor_container_cmd));
     printk("Container id received from user space is %llu", kcmd.cid);
+    //Checking if the container is present
     if(!isConatinerPresent(kcmd.cid))
      {
-printk("entering here %llu", kcmd.cid);
+       printk("entering here %llu", kcmd.cid);
+       //Creating the container if it is not present
        createContainer(kcmd.cid);
      }
     return 0;
