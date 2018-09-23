@@ -48,7 +48,7 @@
 extern struct miscdevice processor_container_dev;
 struct thread_list
 {
-   struct list_head threadList;
+   struct list_head list;
 };
 
 struct container_list

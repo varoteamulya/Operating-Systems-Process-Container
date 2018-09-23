@@ -45,10 +45,9 @@
 #include <linux/sched.h>
 #include <linux/kthread.h>
 #include <linux/list.h>
-
 struct thread_list
 {
-  struct list_head list;
+  struct list_head threadList; 
 };
 
 struct container_list
@@ -59,9 +58,6 @@ struct container_list
 };
 
 extern struct list_head containerHead;
-int addThread(struct container_list *);
-struct container_list *isConatinerPresent(__u64);
-void createContainer(__u64);
 
 //Method to check if the container is present
 struct container_list *isConatinerPresent(__u64 id)
@@ -75,18 +71,18 @@ struct container_list *isConatinerPresent(__u64 id)
       temp = list_entry(pos, struct container_list, list);
       if(temp!=NULL && temp->cid == id)
 	{
-	 return temp;
+	 return temp; 
 	}
     }
-    return NULL;
+    return null;
 }
-
-int addThread(struct container_list *container){
-     printk("add thread to container ");
-     struct thread_list *tTmp;
-     tTmp = (struct thread_list *)kmalloc(sizeof(struct thread_list), GFP_KERNEL);
-     list_add(&(tTmp->list), &(container->head));
-return 0;
+void addThreadInsideContainer(__u64 tcid,struct thread_list **node )
+{
+    printk("add thread inside container ");
+    struct thread_list *tTmp;
+    tTmp = (struct thread_list *)kmalloc(sizeof(struct thread_list), GFP_KERNEL);
+    list_add(&(tTmp->list),&(*node));
+    
 }
 
 void createContainer(__u64 kcid)
@@ -98,14 +94,16 @@ void createContainer(__u64 kcid)
      tmp->cid = kcid;
      //Adding the container to the list
      list_add(&(tmp->list),&(containerHead));
-     addThread(&tmp);
+     addThreadInsideContainer(kcid, &tmp.head);
 }
+
+
 
 /**
  * Delete the task in the container.
- *
+ * 
  * external functions needed:
- * mutex_lock(), mutex_unlock(), wake_up_process(),
+ * mutex_lock(), mutex_unlock(), wake_up_process(), 
  */
 int processor_container_delete(struct processor_container_cmd __user *user_cmd)
 {
@@ -116,33 +114,28 @@ int processor_container_delete(struct processor_container_cmd __user *user_cmd)
  * Create a task in the corresponding container.
  * external functions needed:
  * copy_from_user(), mutex_lock(), mutex_unlock(), set_current_state(), schedule()
- *
+ * 
  * external variables needed:
- * struct task_struct* current
+ * struct task_struct* current  
  */
 int processor_container_create(struct processor_container_cmd __user *user_cmd)
 {
     printk("Inside pcontainer create\n");
     struct processor_container_cmd kcmd;
-    struct container_list *intermediate;
+    struct container_list node;
     //Reading the inputs from the user space
     copy_from_user(&kcmd, (void __user*)user_cmd, sizeof(struct processor_container_cmd));
     printk("Container id received from user space is %llu", kcmd.cid);
     //Checking if the container is present
-    intermediate = isConatinerPresent(kcmd.cid);
-    if(intermediate == NULL)
+    if(!isConatinerPresent(kcm)
      {
        printk("entering here %llu", kcmd.cid);
        //Creating the container if it is not present
        createContainer(kcmd.cid);
      }
-    else{
-       addThread(&intermediate);
-    }
-
-    if(list_empty(&(intermediate->head)))
+    else
     {
-       printk("Thread list is empty for %llu", kcmd.cid);
+      addThreadInsideContainer(kcmd.cid, );
     }
     return 0;
 }
