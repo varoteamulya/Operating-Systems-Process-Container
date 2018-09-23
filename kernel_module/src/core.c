@@ -43,9 +43,22 @@
 #include <linux/poll.h>
 #include <linux/mutex.h>
 #include <linux/sched.h>
+#include <linux/list.h>
 
 extern struct miscdevice processor_container_dev;
+struct thread_list
+{
+   struct list_head threadList;
+};
 
+struct container_list
+{
+    __u64 cid;
+    struct thread_list *head;
+    struct list_head list;
+};
+struct list_head containerHead;
+LIST_HEAD(containerHead);
 /**
  * Initialize and register the kernel module
  */

@@ -44,6 +44,45 @@
 #include <linux/mutex.h>
 #include <linux/sched.h>
 #include <linux/kthread.h>
+#include <linux/list.h>
+struct thread_list
+{
+  struct list_head threadList; 
+};
+
+struct container_list
+{
+   __u64 cid;
+   struct thread_list *head;
+   struct list_head list;
+};
+
+extern struct list_head containerHead;
+
+bool isConatinerPresent(__u64 id)
+{
+printk("iscontainerpresent ");
+   struct container_list *temp;
+   struct list_head *pos;
+   list_for_each(pos,&containerHead)
+    {
+      temp = list_entry(pos, struct container_list, list);
+      if(temp!=NULL && temp->cid == id)
+	{
+	 return true; 
+	}
+    }
+    return false;
+}
+
+void createContainer(__u64 kcid)
+{
+     printk("creating the container ");
+     struct container_list *tmp;
+     tmp = (struct container_list *)kmalloc(sizeof(struct container_list), GFP_KERNEL);
+     tmp->cid = kcid;
+     list_add(&(tmp->list),&(containerHead));
+}
 
 /**
  * Delete the task in the container.
@@ -66,6 +105,16 @@ int processor_container_delete(struct processor_container_cmd __user *user_cmd)
  */
 int processor_container_create(struct processor_container_cmd __user *user_cmd)
 {
+    printk("Inside pcontainer create\n");
+    struct processor_container_cmd kcmd;
+    struct container_list node;
+    copy_from_user(&kcmd, (void __user*)user_cmd, sizeof(struct processor_container_cmd));
+    printk("Container id received from user space is %llu", kcmd.cid);
+    if(!isConatinerPresent(kcmd.cid))
+     {
+printk("entering here %llu", kcmd.cid);
+       createContainer(kcmd.cid);
+     }
     return 0;
 }
 
