@@ -67,10 +67,12 @@ void createContainer(__u64, bool);
 int simple_thread_first(void);
 void thread_cleanup(void) ;
 
+static DEFINE_MUTEX(lock);
+
 //Method to check if the container is present
 struct container_list *isConatinerPresent(__u64 id)
 {
-   printk("iscontainerpresent ");
+   printk("iscontainerpresent\n ");
    struct container_list *temp;
    struct list_head *pos,*p;
    //Traversing the list
@@ -87,7 +89,7 @@ struct container_list *isConatinerPresent(__u64 id)
 
 struct thread_list *isThreadPresent(struct container_list *cont, pid_t pid)
 {
-   printk("is thread present ");
+   printk("isThreadPresent\n ");
    struct thread_list *tThreadTemp;
    struct list_head *p,*q;
    list_for_each_safe(p, q,&((cont->head).list))
@@ -95,6 +97,7 @@ struct thread_list *isThreadPresent(struct container_list *cont, pid_t pid)
       tThreadTemp = list_entry(p, struct thread_list, list);
       if(tThreadTemp!=NULL && tThreadTemp->pthread->pid == pid)
       {
+        printk("thread pid matched: %uld\n", pid);
         return tThreadTemp;
       }
    }
@@ -106,7 +109,9 @@ int addThread(struct container_list *container, bool firstThread){
      struct thread_list *tTmp;
      tTmp = (struct thread_list *)kmalloc(sizeof(struct thread_list), GFP_KERNEL);
      tTmp->pthread = current;
+     mutex_lock(&lock);
      list_add(&(tTmp->list), &((container->head).list));
+     mutex_unlock(&lock);
 
 //     current = kthread_create(simple_thread_first,NULL, "simple_thread");
       //if(current)
@@ -145,7 +150,9 @@ void createContainer(__u64 kcid, bool isFirstThread)
      tmp->cid = kcid;
      INIT_LIST_HEAD(&tmp->head.list);
      //Adding the container to the list
+     mutex_lock(&lock);
      list_add(&(tmp->list),&(containerHead.list));
+     mutex_unlock(&lock);
      struct thread_list *intermediateThread;
      intermediateThread = isThreadPresent(tmp, current->pid);
      if(intermediateThread == NULL)
@@ -157,7 +164,9 @@ void createContainer(__u64 kcid, bool isFirstThread)
 void deleteThread(struct container_list *cont)
 {
      printk("deleting the thread ");
-     list_del(&(cont->head).list);
+     mutex_lock(&lock);
+     list_del(&((cont->head).list));
+     mutex_unlock(&lock);
      //kfree(cont->head);
 }
 
@@ -168,10 +177,13 @@ void deleteContainer(__u64 dcid)
      struct list_head *pos,*p;
      list_for_each_safe(pos,p,&containerHead.list)
      {
+        printk("Looping container to delete them\n");
         dtmp = list_entry(pos,struct container_list, list);
         if(dtmp!=NULL && dtmp->cid ==dcid)
         {
+           mutex_lock(&lock);
            list_del(pos);
+           mutex_unlock(&lock);
            kfree(dtmp);
         }
      }
@@ -190,7 +202,7 @@ int processor_container_delete(struct processor_container_cmd __user *user_cmd)
     struct list_head *pos,*p;
     struct container_list *dcTemp;
     copy_from_user(&kdcmd, (void __user*)user_cmd, sizeof(struct processor_container_cmd));
-    printk("container in which thread is being deleted is %llu", kdcmd.cid);
+    printk("container in which thread is being deleted is: %llu \n", kdcmd.cid);
 
     //struct container_list *tmp = isConatinerPresent(kdcmd.cid);
     //struct thread_list *t_head = &(tmp->head);
@@ -200,21 +212,21 @@ int processor_container_delete(struct processor_container_cmd __user *user_cmd)
 //{
 //list_del(&tmp->list)
 //}
-
-
     list_for_each_safe(pos,p,&containerHead.list)
     {
+       printk("checking if container id is matching\n");
        dcTemp = list_entry(p,struct container_list, list);
        if(dcTemp!=NULL && dcTemp->cid == kdcmd.cid )
        {
-           deleteThread(&dcTemp);
+           printk("Container ids are matching: %llu\n", kdcmd.cid);
+           deleteThread(dcTemp);
        }
-    }
        if(list_empty(&((dcTemp->head).list)))
        {
            printk("Deleted all threads in the container\n ");
            deleteContainer(kdcmd.cid);
        }
+     }
     return 0;
 }
 
@@ -233,7 +245,7 @@ int processor_container_create(struct processor_container_cmd __user *user_cmd)
     struct container_list *intermediate;
     //Reading the inputs from the user space
     copy_from_user(&kcmd, (void __user*)user_cmd, sizeof(struct processor_container_cmd));
-    printk("Container id received from user space is %llu", kcmd.cid);
+    printk("Container id received from user space is %llu :", kcmd.cid);
     //Checking if the container is present
     intermediate = isConatinerPresent(kcmd.cid);
     if(intermediate == NULL)
@@ -241,16 +253,14 @@ int processor_container_create(struct processor_container_cmd __user *user_cmd)
        printk("entering here %llu", kcmd.cid);
        //Creating the container if it is not present
        createContainer(kcmd.cid, true);
+       set_current_state(TASK_RUNNING);
+       schedule();
      }
     else{
+       printk("Container is present: %llu\n ", kcmd.cid);
        addThread(intermediate, false);
     }
-
-    if(list_empty(&(intermediate->head)))
-    {
-       printk("Thread list is empty for %llu", kcmd.cid);
-    }
-    return 0;
+     return 0;
 }
 
 /**
