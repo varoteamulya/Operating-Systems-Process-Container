@@ -208,17 +208,20 @@ int processor_container_delete(struct processor_container_cmd __user *user_cmd)
     struct thread_list *t_head = &(tmp->head);
     struct thread_list *ttpos = isThreadPresent(tmp, current->pid);
     mutex_lock(&lock);
-    list_del(&ttpos->list);
+    list_del_init(&ttpos->list);
     mutex_unlock(&lock);
     printk(" Deleted the therad now ");
-    wake_up_process(&((dcTemp->head).list));
+if(tmp!=NULL && t_head !=NULL){
+    printk(" It is not null\n");
+    wake_up_process(t_head->pthread);
     printk(" Woken up the process now ");
+}
     if(list_empty(&t_head->list))
 {
 printk("Container ids are matching: %llu\n", kdcmd.cid);
 
  mutex_lock(&lock);
-list_del(&tmp->list);
+list_del_init(&tmp->list);
 mutex_unlock(&lock);
 
  printk("I am out of del");
