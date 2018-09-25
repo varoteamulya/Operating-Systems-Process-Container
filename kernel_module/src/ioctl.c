@@ -214,17 +214,23 @@ int processor_container_delete(struct processor_container_cmd __user *user_cmd)
 //}
     list_for_each_safe(pos,p,&containerHead.list)
     {
-       printk("checking if container id is matching\n");
        dcTemp = list_entry(p,struct container_list, list);
+       printk("checking if container id is matching\n");
+
        if(dcTemp!=NULL && dcTemp->cid == kdcmd.cid )
        {
            printk("Container ids are matching: %llu\n", kdcmd.cid);
            deleteThread(dcTemp);
        }
-       if(list_empty(&((dcTemp->head).list)))
+       if(dcTemp!=NULL && list_empty(&((dcTemp->head).list)))
        {
            printk("Deleted all threads in the container\n ");
            deleteContainer(kdcmd.cid);
+       }
+       else if(dcTemp!= NULL)
+       {
+           printk("waking up the sleeping process %llu \n", dcTemp->cid);
+           wake_up_process(&((dcTemp->head).pthread));
        }
      }
     return 0;
