@@ -1,4 +1,4 @@
-//////////////////////////////////////////////////////////////////////
+ //////////////////////////////////////////////////////////////////////
 //                      North Carolina State University
 //
 //
@@ -189,6 +189,40 @@ void deleteContainer(__u64 dcid)
      }
 }
 
+struct thread_list *nextThreadInLoop(struct task_struct *myThread, __u64 cId)
+{
+     printk("inside nextThreadLoop\n");
+     struct container_list *cnTemp;
+     struct list_head *npo, *nq, *npo2,*nq2;
+     struct thread_list *tnTemp;
+     list_for_each_safe(npo, nq, &containerHead.list)
+     {
+        cnTemp = list_entry(npo, struct container_list,list);
+        //if(cnTemp!=NULL && cnTemp->cid == cId)
+        //{
+printk("IsContainer matching loop\n");
+             list_for_each_safe(npo2, nq2, &((cnTemp->head).list))
+             {
+                 printk("Found the thread head \n");
+                 tnTemp = list_entry(npo2,struct thread_list, list );
+                 if(tnTemp!=NULL && tnTemp->pthread->pid == myThread->pid)
+                 {
+                    printk("Thread pid matched\n");
+                     if(list_is_last(npo2,&((cnTemp->head).list)))
+                     {
+                        printk("first return\n");
+                        return list_first_entry(&((cnTemp->head).list), struct thread_list, list);
+                     }
+                     printk("Second return\n");
+	           return list_entry(npo2->next, struct thread_list, list);
+                 }
+             }
+       //}
+
+     }
+      return NULL;
+}
+
 /**
  * Delete the task in the container.
  *
@@ -207,31 +241,27 @@ int processor_container_delete(struct processor_container_cmd __user *user_cmd)
     struct container_list *tmp = isConatinerPresent(kdcmd.cid);
     struct thread_list *t_head = &(tmp->head);
     struct thread_list *ttpos = isThreadPresent(tmp, current->pid);
-    printk("poiter to th is %p\n", t_head->pthread);
+    struct thread_list *nextThreadInContainerLoop = NULL;
+    nextThreadInContainerLoop =  nextThreadInLoop(current, kdcmd.cid);
+    printk("poiter to th is \n");
     mutex_lock(&lock);
-    list_del_init(&ttpos->list);
+    wake_up_process(nextThreadInContainerLoop->pthread);
+      printk("I am deleting the thread here\n");
+      list_del(&ttpos->list);
+      kfree(ttpos);
     mutex_unlock(&lock);
     printk(" Deleted the therad now ");
-if(tmp!=NULL && t_head !=NULL){
-    printk(" It is not null and pointer is %uld:\n", t_head->pthread->pid);
-    printk("pointer to thread is %p\n", t_head->pthread);
-    printk("Address of it is %p", &(t_head->pthread));
-    wake_up_process(&(t_head->pthread));
-    printk("Pid of curr thres is %uld:\n", current->pid);
-
-    printk(" Woken up the process now ");
-}
     if(list_empty(&t_head->list))
-{
-printk("Container ids are matching: %llu\n", kdcmd.cid);
-
- mutex_lock(&lock);
-list_del_init(&tmp->list);
-mutex_unlock(&lock);
-
- printk("I am out of del");
-}
-printk("Problem is it ?\n");
+    {
+        printk("Container ids are matchingfor delete: %llu\n", kdcmd.cid);
+        mutex_lock(&lock);
+        list_del(&tmp->list);
+        kfree(tmp);
+        mutex_unlock(&lock);
+        printk("I am out of del");
+    }
+  schedule();
+  printk("Problem is it ?\n");
 //    list_for_each_safe(pos,p,&containerHead.list)
   //  {
     //   dcTemp = list_entry(p,struct container_list, list);
