@@ -108,37 +108,12 @@ int addThread(struct container_list *container, bool firstThread){
      printk("add thread to container ");
      struct thread_list *tTmp;
      tTmp = (struct thread_list *)kmalloc(sizeof(struct thread_list), GFP_KERNEL);
-     tTmp->pthread = current;
      mutex_lock(&lock);
+     tTmp->pthread = current;
      list_add(&(tTmp->list), &((container->head).list));
      mutex_unlock(&lock);
 
-//     current = kthread_create(simple_thread_first,NULL, "simple_thread");
-      //if(current)
-      //{
-       // printk(KERN_INFO "inside kthread create for current ");
-        //wake_up_process(current);
-      //}
-      //else
-        //return 0;
     return 0;
-}
-
-int simple_thread_first(void)
-{
-   while(!kthread_should_stop())
-   {
-      set_current_state(TASK_RUNNING);
-   }
- return 0;
-}
-
-void thread_cleanup(void) {
- int ret;
- ret = kthread_stop(current);
- if(!ret)
-  printk(KERN_INFO "Thread stopped");
-
 }
 
 void createContainer(__u64 kcid, bool isFirstThread)
@@ -198,8 +173,8 @@ struct thread_list *nextThreadInLoop(struct task_struct *myThread, __u64 cId)
      list_for_each_safe(npo, nq, &containerHead.list)
      {
         cnTemp = list_entry(npo, struct container_list,list);
-        //if(cnTemp!=NULL && cnTemp->cid == cId)
-        //{
+        if(cnTemp!=NULL && cnTemp->cid == cId)
+        {
 printk("IsContainer matching loop\n");
              list_for_each_safe(npo2, nq2, &((cnTemp->head).list))
              {
@@ -208,7 +183,7 @@ printk("IsContainer matching loop\n");
                  if(tnTemp!=NULL && tnTemp->pthread->pid == myThread->pid)
                  {
                     printk("Thread pid matched\n");
-                     if(list_is_last(npo2,&((cnTemp->head).list)))
+                     if(list_is_last(npo2, &((cnTemp->head).list)))
                      {
                         printk("first return\n");
                         return list_first_entry(&((cnTemp->head).list), struct thread_list, list);
@@ -217,7 +192,7 @@ printk("IsContainer matching loop\n");
 	           return list_entry(npo2->next, struct thread_list, list);
                  }
              }
-       //}
+       }
 
      }
       return NULL;
@@ -333,6 +308,33 @@ int processor_container_create(struct processor_container_cmd __user *user_cmd)
  */
 int processor_container_switch(struct processor_container_cmd __user *user_cmd)
 {
+    struct processor_container_cmd kccmd;
+    printk(" Entering context switch\n");
+    copy_from_user(&kccmd, (void __user*)user_cmd, sizeof(struct processor_container_cmd));
+
+    struct container_list *contextContainer = isConatinerPresent(kccmd.cid);
+    struct thread_list *t_head = &(contextContainer->head);
+    struct thread_list *thread_switch = &(contextContainer->head);
+   // mutex_lock(&lock);
+    printk("Container id here in context switch is %llu\n", kccmd.cid);
+
+    if(contextContainer != NULL)
+    {
+        printk("Cont Id inside contSwitch %llu", kccmd.cid);
+        //struct thread_list *contextThread = isThreadPresent(contextContainer,current->pid);
+        struct thread_list *nextThread = NULL;
+
+        mutex_lock(&lock);
+        nextThread =  nextThreadInLoop(current,kccmd.cid);
+        list_rotate_left(&t_head->list);
+        wake_up_process(nextThread->pthread);
+        set_current_state(TASK_INTERRUPTIBLE);
+        mutex_unlock(&lock);
+        schedule();
+        
+        printk("End of task rotation loop\n");
+     }
+    printk("Done dana done\n");
     return 0;
 }
 
