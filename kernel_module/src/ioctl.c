@@ -179,10 +179,8 @@ struct thread_list *nextThreadInLoop(struct task_struct *myThread, __u64 cId)
              list_for_each_safe(npo2, nq2, &((cnTemp->head).list))
              {
                  printk("Found the thread head \n");
-                 mutex_lock(&lock);
                  tnTemp = list_entry(npo2,struct thread_list, list );
-                 mutex_unlock(&lock);
-                 printk("Might not be null here\n");
+                 printk("Current thread pid is: %ld, mythread pid is: %ld \n", tnTemp->pthread->pid, myThread->pid);
                  if(tnTemp!=NULL && tnTemp->pthread->pid == myThread->pid)
                  {
                     printk("Thread pid matched\n");
@@ -289,29 +287,32 @@ int processor_container_switch(struct processor_container_cmd __user *user_cmd)
     struct processor_container_cmd kccmd;
     printk(" Entering context switch\n");
     copy_from_user(&kccmd, (void __user*)user_cmd, sizeof(struct processor_container_cmd));
-
+    mutex_lock(&lock);
     struct container_list *contextContainer = isConatinerPresent(kccmd.cid);
     struct thread_list *t_head = &(contextContainer->head);
-    struct thread_list *thread_switch = &(contextContainer->head);
+//    struct thread_list *thread_switch = &(contextContainer->head);
    // mutex_lock(&lock);
    // printk("Container id here in context switch is %llu\n", kccmd.cid);
 
     if(contextContainer != NULL)
     {
-        printk("Cont Id inside contSwitch %llu", kccmd.cid);
+        printk("Cont Id inside contSwitch: %llu, current pid is: %ld\n", kccmd.cid, current->pid);
         //struct thread_list *contextThread = isThreadPresent(contextContainer,current->pid);
         struct thread_list *nextThread = NULL;
 
-        mutex_lock(&lock);
+       // mutex_lock(&lock);
         nextThread = nextThreadInLoop(current,kccmd.cid);
-        wake_up_process(nextThread->pthread);
+        printk("Next thread not null\n");
         if(nextThread!=NULL){
+        wake_up_process(nextThread->pthread);
         list_rotate_left(&t_head->list);
         set_current_state(TASK_INTERRUPTIBLE);}
-        mutex_unlock(&lock);
-        schedule();
+  //      mutex_unlock(&lock);
+//        schedule();
         printk("End of task rotation loop\n");
      }
+ mutex_unlock(&lock);
+ schedule();
     printk("Done with context switching\n");
     return 0;
 }
