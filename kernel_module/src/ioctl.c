@@ -256,7 +256,7 @@ int processor_container_delete(struct processor_container_cmd __user *user_cmd)
       kfree(ttpos);
    // mutex_unlock(&lock);
     printk(" Deleted the therad now ");
-    if(list_empty(&t_head->list))
+    if(list_empty_careful(&t_head->list))
     {
         printk("Container ids are matchingfor delete: %llu\n", kdcmd.cid);
      //   mutex_lock(&lock);
