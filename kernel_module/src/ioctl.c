@@ -105,7 +105,7 @@ struct thread_list *isThreadPresent(struct container_list *cont, pid_t pid)
 }
 
 int addThread(struct container_list *container, bool firstThread){
-     printk("add thread to container ");
+     printk("add thread to container %llu with pid as %ld ", container->cid, current->pid);
      struct thread_list *tTmp;
      tTmp = (struct thread_list *)kmalloc(sizeof(struct thread_list), GFP_KERNEL);
      mutex_lock(&lock);
@@ -166,7 +166,7 @@ void deleteContainer(__u64 dcid)
 
 struct thread_list *nextThreadInLoop(struct task_struct *myThread, __u64 cId)
 {
-     printk("inside nextThreadLoop\n");
+     printk("inside nextThreadLoop with cid as %llu\n", cId);
      struct container_list *cnTemp;
      struct list_head *npo, *nq, *npo2,*nq2;
      struct thread_list *tnTemp;
@@ -175,15 +175,15 @@ struct thread_list *nextThreadInLoop(struct task_struct *myThread, __u64 cId)
         cnTemp = list_entry(npo, struct container_list,list);
         if(cnTemp!=NULL && cnTemp->cid == cId)
         {
-             printk("IsContainer matching loop: %llu\n", cId);
+//             printk("IsContainer matching loop: %llu\n", cId);
              list_for_each_safe(npo2, nq2, &((cnTemp->head).list))
              {
-                 printk("Found the thread head \n");
+  //               printk("Found the thread head \n");
                  tnTemp = list_entry(npo2,struct thread_list, list );
                  printk("Current thread pid is: %ld, mythread pid is: %ld \n", tnTemp->pthread->pid, myThread->pid);
                  if(tnTemp!=NULL && tnTemp->pthread->pid == myThread->pid)
                  {
-                    printk("Thread pid matched\n");
+    //                printk("Thread pid matched\n");
                      if(list_is_last(npo2, &((cnTemp->head).list)))
                      {
                         printk("first return\n");
@@ -198,6 +198,34 @@ struct thread_list *nextThreadInLoop(struct task_struct *myThread, __u64 cId)
      }
       return NULL;
 }
+
+
+
+struct container_list *findContainerByPid(pid_t procID)
+{
+     printk("inside findContainerByPid: %ld\n", procID);
+     struct container_list *cnTemp;
+     struct list_head *npo, *nq, *npo2,*nq2;
+     struct thread_list *tnTemp;
+     list_for_each_safe(npo, nq, &containerHead.list)
+     {
+        cnTemp = list_entry(npo, struct container_list,list);
+        list_for_each_safe(npo2, nq2, &((cnTemp->head).list))
+             {
+                 printk(" Thread loop in container \n");
+                 tnTemp = list_entry(npo2,struct thread_list, list );
+                 printk("Current thread pid is: %ld, mythread pid is: %ld \n", tnTemp->pthread->pid, procID);
+                 if(tnTemp!=NULL && tnTemp->pthread->pid == procID)
+                 {
+                    printk("Thread pid for getting container matched\n");
+                    return cnTemp;
+                 }
+             }
+     }
+      return NULL;
+}
+
+
 
 /**
  * Delete the task in the container.
@@ -214,29 +242,31 @@ int processor_container_delete(struct processor_container_cmd __user *user_cmd)
     copy_from_user(&kdcmd, (void __user*)user_cmd, sizeof(struct processor_container_cmd));
     //printk("container in which thread is being deleted is: %llu \n", kdcmd.cid);
 
+    mutex_lock(&lock);
     struct container_list *tmp = isConatinerPresent(kdcmd.cid);
     struct thread_list *t_head = &(tmp->head);
     struct thread_list *ttpos = isThreadPresent(tmp, current->pid);
     struct thread_list *nextThreadInContainerLoop = NULL;
     nextThreadInContainerLoop =  nextThreadInLoop(current, kdcmd.cid);
     //printk("poiter to th is \n");
-    mutex_lock(&lock);
+   //mutex_lock(&lock);
     wake_up_process(nextThreadInContainerLoop->pthread);
       //printk("I am deleting the thread here\n");
       list_del(&ttpos->list);
       kfree(ttpos);
-    mutex_unlock(&lock);
+   // mutex_unlock(&lock);
     printk(" Deleted the therad now ");
     if(list_empty(&t_head->list))
     {
         printk("Container ids are matchingfor delete: %llu\n", kdcmd.cid);
-        mutex_lock(&lock);
+     //   mutex_lock(&lock);
         list_del(&tmp->list);
         kfree(tmp);
-        mutex_unlock(&lock);
+       // mutex_unlock(&lock);
         printk("I am out of del");
     }
-    schedule();
+     mutex_unlock(&lock);
+//    schedule();
     printk("Problem is it ?\n");
     return 0;
 }
@@ -288,7 +318,14 @@ int processor_container_switch(struct processor_container_cmd __user *user_cmd)
     printk(" Entering context switch\n");
     copy_from_user(&kccmd, (void __user*)user_cmd, sizeof(struct processor_container_cmd));
     mutex_lock(&lock);
-    struct container_list *contextContainer = isConatinerPresent(kccmd.cid);
+    struct container_list *contextContainer = NULL;
+    contextContainer = findContainerByPid(current->pid);
+    if(contextContainer==NULL)
+    {
+       printk(" No container found for the current thread id\n");
+       return 0;
+    }
+//    struct container_list *contextContainer = isConatinerPresent(kccmd.cid);
     struct thread_list *t_head = &(contextContainer->head);
 //    struct thread_list *thread_switch = &(contextContainer->head);
    // mutex_lock(&lock);
@@ -296,23 +333,25 @@ int processor_container_switch(struct processor_container_cmd __user *user_cmd)
 
     if(contextContainer != NULL)
     {
-        printk("Cont Id inside contSwitch: %llu, current pid is: %ld\n", kccmd.cid, current->pid);
+        printk("Cont Id inside contSwitch: %llu, current pid is: %ld\n", contextContainer->cid, current->pid);
         //struct thread_list *contextThread = isThreadPresent(contextContainer,current->pid);
         struct thread_list *nextThread = NULL;
 
        // mutex_lock(&lock);
-        nextThread = nextThreadInLoop(current,kccmd.cid);
-        printk("Next thread not null\n");
-        if(nextThread!=NULL){
+        nextThread = nextThreadInLoop(current,contextContainer->cid);
+        printk("Next thread pid is %ld, current thread pid is %ld\n", nextThread->pthread->pid, current->pid);
+        if(nextThread!=NULL && current->pid!=nextThread->pthread->pid){
+        printk("Next threas is not null\n");
         wake_up_process(nextThread->pthread);
         list_rotate_left(&t_head->list);
         set_current_state(TASK_INTERRUPTIBLE);}
   //      mutex_unlock(&lock);
 //        schedule();
-        printk("End of task rotation loop\n");
+        printk("Wake proces loop\n");
      }
- mutex_unlock(&lock);
- schedule();
+    mutex_unlock(&lock);
+    printk("End of task rotation loop\n");
+    schedule();
     printk("Done with context switching\n");
     return 0;
 }
