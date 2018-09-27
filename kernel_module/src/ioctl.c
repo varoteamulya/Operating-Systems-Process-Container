@@ -323,6 +323,7 @@ int processor_container_switch(struct processor_container_cmd __user *user_cmd)
     if(contextContainer==NULL)
     {
        printk(" No container found for the current thread id\n");
+       mutex_unlock(&lock);
        return 0;
     }
 //    struct container_list *contextContainer = isConatinerPresent(kccmd.cid);
