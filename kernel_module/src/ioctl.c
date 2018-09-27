@@ -71,7 +71,7 @@ static DEFINE_MUTEX(lock);
 */
 struct container_list *isConatinerPresent(__u64 id)
 {
-   printk("iscontainerpresent\n ");
+//   printk("iscontainerpresent\n ");
    struct container_list *temp;
    struct list_head *pos,*p;
    //Traversing the list
@@ -91,7 +91,7 @@ struct container_list *isConatinerPresent(__u64 id)
 */
 struct thread_list *isThreadPresent(struct container_list *cont, pid_t pid)
 {
-   printk("isThreadPresent\n ");
+  // printk("isThreadPresent\n ");
    struct thread_list *tThreadTemp;
    struct list_head *p,*q;
    list_for_each_safe(p, q,&((cont->head).list))
@@ -111,7 +111,7 @@ struct thread_list *isThreadPresent(struct container_list *cont, pid_t pid)
 */
 int addThread(struct container_list *container, bool firstThread)
 {
-     printk("add thread to container %llu with pid as %ld ", container->cid, current->pid);
+    // printk("add thread to container %llu with pid as %ld ", container->cid, current->pid);
      struct thread_list *tTmp;
      tTmp = (struct thread_list *)kmalloc(sizeof(struct thread_list), GFP_KERNEL);
      mutex_lock(&lock);
@@ -126,7 +126,7 @@ int addThread(struct container_list *container, bool firstThread)
 */
 void createContainer(__u64 kcid, bool isFirstThread)
 {
-     printk("creating the container ");
+     //printk("creating the container ");
      struct container_list *tmp;
      //Creating a new container
      tmp = (struct container_list *)kmalloc(sizeof(struct container_list), GFP_KERNEL);
@@ -152,7 +152,7 @@ void createContainer(__u64 kcid, bool isFirstThread)
 */
 struct thread_list *nextThreadInLoop(struct task_struct *myThread, __u64 cId)
 {
-     printk("inside nextThreadLoop with cid as %llu\n", cId);
+     //printk("inside nextThreadLoop with cid as %llu\n", cId);
      struct container_list *cnTemp;
      struct list_head *npo, *nq, *npo2,*nq2;
      struct thread_list *tnTemp;
@@ -166,7 +166,7 @@ struct thread_list *nextThreadInLoop(struct task_struct *myThread, __u64 cId)
              {
   //               printk("Found the thread head \n");
                  tnTemp = list_entry(npo2,struct thread_list, list );
-                 printk("Current thread pid is: %ld, mythread pid is: %ld \n", tnTemp->pthread->pid, myThread->pid);
+       //          printk("Current thread pid is: %ld, mythread pid is: %ld \n", tnTemp->pthread->pid, myThread->pid);
                  if(tnTemp!=NULL && tnTemp->pthread->pid == myThread->pid)
                  {
     //                printk("Thread pid matched\n");
@@ -193,7 +193,7 @@ struct thread_list *nextThreadInLoop(struct task_struct *myThread, __u64 cId)
  */
 struct container_list *findContainerByPid(pid_t procID)
 {
-     printk("inside findContainerByPid: %ld\n", procID);
+    // printk("inside findContainerByPid: %ld\n", procID);
      struct container_list *cnTemp;
      struct list_head *npo, *nq, *npo2,*nq2;
      struct thread_list *tnTemp;
@@ -202,12 +202,12 @@ struct container_list *findContainerByPid(pid_t procID)
         cnTemp = list_entry(npo, struct container_list,list);
         list_for_each_safe(npo2, nq2, &((cnTemp->head).list))
              {
-                 printk(" Thread loop in container \n");
+      //           printk(" Thread loop in container \n");
                  tnTemp = list_entry(npo2,struct thread_list, list );
-                 printk("Current thread pid is: %ld, mythread pid is: %ld \n", tnTemp->pthread->pid, procID);
+        //         printk("Current thread pid is: %ld, mythread pid is: %ld \n", tnTemp->pthread->pid, procID);
                  if(tnTemp!=NULL && tnTemp->pthread->pid == procID)
                  {
-                    printk("Thread pid for getting container matched\n");
+          //          printk("Thread pid for getting container matched\n");
                     return cnTemp;
                  }
              }
@@ -239,7 +239,8 @@ int processor_container_delete(struct processor_container_cmd __user *user_cmd)
     struct thread_list *nextThreadInContainerLoop = NULL;
 
     nextThreadInContainerLoop =  nextThreadInLoop(current, kdcmd.cid);
-    wake_up_process(nextThreadInContainerLoop->pthread);
+    if(current->pid!=nextThreadInContainerLoop->pthread->pid){
+    wake_up_process(nextThreadInContainerLoop->pthread);}
     list_del(&ttpos->list);
     kfree(ttpos);
 
@@ -250,6 +251,7 @@ int processor_container_delete(struct processor_container_cmd __user *user_cmd)
         kfree(tmp);
     }
     mutex_unlock(&lock);
+    schedule();
     return 0;
 }
 
@@ -268,7 +270,7 @@ int processor_container_create(struct processor_container_cmd __user *user_cmd)
     struct container_list *intermediate;
     //Reading the inputs from the user space
     copy_from_user(&kcmd, (void __user*)user_cmd, sizeof(struct processor_container_cmd));
-    printk("Container id received from user space is %llu :", kcmd.cid);
+//    printk("Container id received from user space is %llu :", kcmd.cid);
     //Checking if the container is present
     intermediate = isConatinerPresent(kcmd.cid);
     if(intermediate == NULL)
@@ -311,15 +313,15 @@ int processor_container_switch(struct processor_container_cmd __user *user_cmd)
     struct thread_list *t_head = &(contextContainer->head);
     if(contextContainer != NULL)
     {
-        printk("Cont Id inside contSwitch: %llu, current pid is: %ld\n", contextContainer->cid, current->pid);
+  //      printk("Cont Id inside contSwitch: %llu, current pid is: %ld\n", contextContainer->cid, current->pid);
         //struct thread_list *contextThread = isThreadPresent(contextContainer,current->pid);
         struct thread_list *nextThread = NULL;
 
         nextThread = nextThreadInLoop(current,contextContainer->cid);
-        printk("Next thread pid is %ld, current thread pid is %ld\n", nextThread->pthread->pid, current->pid);
+    //    printk("Next thread pid is %ld, current thread pid is %ld\n", nextThread->pthread->pid, current->pid);
         if(nextThread!=NULL && current->pid!=nextThread->pthread->pid)
         {
-             printk("Next threas is not null\n");
+      //       printk("Next threas is not null\n");
              wake_up_process(nextThread->pthread);
              list_rotate_left(&t_head->list);
              set_current_state(TASK_INTERRUPTIBLE);
